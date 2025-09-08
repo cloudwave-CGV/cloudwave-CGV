@@ -91,33 +91,32 @@ Booking 서비스는 Amazon MSK 기반 대기열 시스템으로 대규모 트�
 ## 6. DR(재해 복구)
 
 ### 6.1 전략 및 인프라
-- **전략**: Warm Standby, 보조 리전에 최소 자원 상시 준비  
-- **데이터 계층**: Aurora Global Database 기반 (Seoul Primary, Tokyo Secondary), RPO < 10초 목표  
-  - RDS는 Cross-Region Read Replica 활용  
-- **컴퓨트/네트워크**: Terraform으로 보조 리전 DR 인프라 사전 구성  
-- **트래픽 전환**: AWS Global Accelerator 사용  
+- 전략: Warm Standby, 보조 리전에 최소 자원 상시 준비  
+- 데이터 계층: Aurora Global Database 기반, RPO < 10초 목표  
+  - 일부 서비스는 RDS Cross-Region Read Replica 사용  
+- 컴퓨트/네트워크: Terraform으로 보조 리전 DR 인프라 사전 구축  
+- 트래픽 전환: AWS Global Accelerator 사용  
 
 ### 6.2 감지 및 오케스트레이션
-- **알람**: CloudWatch Composite Alarm으로 서비스/DB 상태 통합 감시  
-- **이벤트**: EventBridge가 알람 수신 후 Step Functions 실행  
-- **오케스트레이션**: 트리거 유형에 따라 분기  
+- 알람: CloudWatch Composite Alarm으로 서비스 및 DB 상태 감시  
+- 이벤트: EventBridge가 알람을 수신해 Step Functions 실행  
+- 오케스트레이션: Step Functions가 트리거 유형에 따라 분기 처리  
   - 서비스 장애: GA 트래픽만 보조 리전으로 전환  
-  - DB/리전 장애: DB 승격 및 전체 전환  
-- **작업**: Lambda로 DB 승격, GA 전환, EKS 확장 수행  
+  - DB 또는 리전 장애: DB 승격과 전체 트래픽 전환 수행  
+- 작업: Lambda로 DB 승격, GA 전환, EKS 확장 실행  
 
 ### 6.3 Failover 절차
-1. 트리거 판정  
-2. DB 승격 및 90~120초 안정화 대기  
+1. 트리거 유형 판정 (Step Functions Choice 상태 사용)  
+2. 보조 리전 Aurora 승격 후 90~120초 안정화 대기  
 3. GA 다이얼 전환으로 트래픽 이동  
-4. EKS 용량 확장  
-- 목표 RTO ≤ 5분, 실제 RTO는 장애 유형과 복제 지연에 따라 변동  
+4. EKS 노드 및 파드 용량 확장  
+- 목표 RTO ≤ 5분, 장애 유형과 복제 지연에 따라 변동 가능  
 
 ### 6.4 Failback
 - 현재 상태머신은 Failover 전용, Failback은 수동 절차  
 - RDS는 Replica 승격 시 원복 불가, 복구 시 Replica 재구성 필요  
 
 ### 6.5 운영 노트
-- GA 제어 리전 일관성 유지  
-- Aurora 승격 후 애플리케이션 연결 문자열 확인  
-- 정기 리허설로 분기 동작과 안정화 구간 검증
-
+- GA 제어 리전 일관성 유지 필요  
+- Aurora 승격 후 애플리케이션 연결 문자열 검증  
+- 정기 리허설로 Step Functions 분기 동작과 안정화 구간 확인  
