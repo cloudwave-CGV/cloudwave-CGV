@@ -1,7 +1,7 @@
 # CGV 통합 예매 플랫폼 (MSA)
 
 ## 0. 전체 아키텍처
-<img width="2876" height="1806" alt="전체 아키텍처 drawio" src="https://github.com/user-attachments/assets/1646c980-352f-47fc-962c-ffa97ec17121" />
+<img width="2876" height="1806" alt="ㄹㅇ 전체 아키텍처 drawio" src="https://github.com/user-attachments/assets/bdcba2eb-c525-4499-93d3-e1b1482906eb" />
 
 
 ## 1. 개요
