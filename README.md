@@ -91,60 +91,33 @@ Booking 서비스는 Amazon MSK 기반 대기열 시스템으로 대규모 트�
 ## 6. DR(재해 복구)
 
 ### 6.1 전략 및 인프라
-
-- **전략**: Warm Standby. 평상시 도쿄 리전에 최소 자원만 상시 준비.
-- **데이터 계층**
-    - 핵심 DB는 **Aurora Global Database** 사용
-        - 평시: **Seoul = Primary(Writer)**, **Tokyo = Secondary(Reader)**
-        - 글로벌 복제 특성상 **RPO < 10초** 목표로 운영
-    - 표준 **RDS**를 사용하는 경우엔 Cross-Region Read Replica를 사용(필요 서비스에 한함).
-- **컴퓨트/네트워크**
-    - **Terraform**으로 도쿄 리전에 DR 기본 인프라 사전 구축
-        - 예: **EKS** `dr-eks-cluster` / 노드그룹 `dr-nodegroup`
-    - 글로벌 트래픽 전환은 **AWS Global Accelerator(GA)** 사용
-        - GA 제어는 **us-west-2** 고정(운영 노트)
-- **리소스 식별(예시)**
-    - Aurora: `reserve-db-prod`(Seoul) / `dr-aurora-cluster`(Tokyo)
+- **전략**: Warm Standby, 보조 리전에 최소 자원 상시 준비  
+- **데이터 계층**: Aurora Global Database 기반 (Seoul Primary, Tokyo Secondary), RPO < 10초 목표  
+  - RDS는 Cross-Region Read Replica 활용  
+- **컴퓨트/네트워크**: Terraform으로 보조 리전 DR 인프라 사전 구성  
+- **트래픽 전환**: AWS Global Accelerator 사용  
 
 ### 6.2 감지 및 오케스트레이션
+- **알람**: CloudWatch Composite Alarm으로 서비스/DB 상태 통합 감시  
+- **이벤트**: EventBridge가 알람 수신 후 Step Functions 실행  
+- **오케스트레이션**: 트리거 유형에 따라 분기  
+  - 서비스 장애: GA 트래픽만 보조 리전으로 전환  
+  - DB/리전 장애: DB 승격 및 전체 전환  
+- **작업**: Lambda로 DB 승격, GA 전환, EKS 확장 수행  
 
-- **알람 → 이벤트 → 상태머신**
-    - **CloudWatch Composite Alarm**: `dr-nlb-composite-trigger`
-        - 서비스 레벨/DB 레벨 상태를 통합 판단(아래 헬스체크 람다 포함)
-    - **EventBridge Rule**: `dr-failover-nlb-composite`
-        - 알람 수신 시 상태머신 실행
-    - **Step Functions**: `dr-failover-failback`
-        - 현재 운용 로직은 **Failover 전용**으로 사용
-- **Lambda 구성(핵심)**
-    - **헬스체크**: `aurora-healthcheck-seoul`, `rds-healthcheck-tokyo`
-    - **조치 작업**: `aurora-promote-tokyo`, `ga-switch-endpoint`, `eks-scale-dr`
-    - **알림(선택)**: `sns-notify-dr`
+### 6.3 Failover 절차
+1. 트리거 판정  
+2. DB 승격 및 90~120초 안정화 대기  
+3. GA 다이얼 전환으로 트래픽 이동  
+4. EKS 용량 확장  
+- 목표 RTO ≤ 5분, 실제 RTO는 장애 유형과 복제 지연에 따라 변동  
 
-### 6.3 Failover 절차(자동)
+### 6.4 Failback
+- 현재 상태머신은 Failover 전용, Failback은 수동 절차  
+- RDS는 Replica 승격 시 원복 불가, 복구 시 Replica 재구성 필요  
 
-1. **트리거 분기**(Step Functions)
-    - `svc-failure`: 애플리케이션 레벨 장애 시 **GA 트래픽만 Tokyo로 전환**
-    - `db-failure` 또는 `region-failure`/`db+app-failure`: DB 및 인프라 레벨 장애 대응 경로로 진행
-2. **DB 승격**
-    - Aurora Global DB의 Tokyo 클러스터를 **Writer로 승격**
-    - 승격 직후 **90~120초 대기**(Writer 전환 안정화 운영 기준)
-3. **트래픽 전환**
-    - **GA 다이얼 전환**으로 사용자 트래픽을 Tokyo로 이동
-4. **용량 확장**
-    - **EKS 노드그룹 스케일업**(Karpenter와 연동)으로 유입 트래픽 수용
+### 6.5 운영 노트
+- GA 제어 리전 일관성 유지  
+- Aurora 승격 후 애플리케이션 연결 문자열 확인  
+- 정기 리허설로 분기 동작과 안정화 구간 검증
 
-> 목표 RTO ≤ 5분. 실제 RTO는 장애 유형/복제 지연/확장 속도에 따라 달라질 수 있으므로 주기적인 리허설을 전제
-> 
-
-### 6.4 Failback 운영 기준
-
-- 현재 상태머신은 **Failover 전용**으로 운용. Failback은 **수동 절차**로 진행
-- **표준 RDS**는 Read Replica를 승격하면 **되돌릴 수 없음**. 도쿄가 Writer가 된 이후 서울 복구 시 **Replica를 재구성**
-
-### 6.5 테스트/운영 노트
-
-- GA 제어 리전은 **us-west-2 고정**이라 IAM/권한 및 자동화 실행 리전을 일관성 있게 관리
-- Aurora 승격 후 애플리케이션의 연결 문자열/시크릿이 Writer 엔드포인트를 참조하는지 확인
-- 리허설 시엔 트리거 종류별(`svc-failure`, `db-failure`, `region-failure`) 분기 성공 여부와 대기 구간(90~120초)에서의 지표 변화를 확인
-
----
