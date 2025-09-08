@@ -1,7 +1,8 @@
 # CGV 통합 예매 플랫폼 (MSA)
 
 ## 0. 전체 아키텍처
-<img width="2927" height="1806" alt="전체 아키텍처" src="https://github.com/user-attachments/assets/c72c78dc-0128-4747-914e-530441aeca98" />
+<img width="2876" height="1806" alt="전체 아키텍처 drawio" src="https://github.com/user-attachments/assets/1646c980-352f-47fc-962c-ffa97ec17121" />
+
 
 ## 1. 개요
 ‘CGV에 시집갈래말래’ 팀은 대규모 트래픽 상황과 재해 상황에서도 비즈니스 연속성을 확보하는 것을 목표로 MSA 기반 통합 예매 플랫폼을 설계·구축  
