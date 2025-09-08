@@ -1,3 +1,8 @@
+## 0. 전체 아키텍처
+<img width="2927" height="1806" alt="전체 아키텍처" src="https://github.com/user-attachments/assets/c72c78dc-0128-4747-914e-530441aeca98" />
+
+
+
 # CGV 통합 예매 플랫폼 (MSA)
 
 ## 1. 개요
