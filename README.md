@@ -115,8 +115,3 @@ Booking 서비스는 Amazon MSK 기반 대기열 시스템으로 대규모 트�
 ### 6.4 Failback
 - 현재 상태머신은 Failover 전용, Failback은 수동 절차  
 - RDS는 Replica 승격 시 원복 불가, 복구 시 Replica 재구성 필요  
-
-### 6.5 운영 노트
-- GA 제어 리전 일관성 유지 필요  
-- Aurora 승격 후 애플리케이션 연결 문자열 검증  
-- 정기 리허설로 Step Functions 분기 동작과 안정화 구간 확인  
